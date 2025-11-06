@@ -1,41 +1,50 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 
-// A glowy, starry cursor that follows the mouse with a slight lag
+// Glowy custom cursor with smooth follow (desktop only)
 const CursorGlow = () => {
   const cursorRef = useRef(null);
   const trailRef = useRef(null);
-  const [pos, setPos] = useState({ x: 0, y: 0 });
-  const [target, setTarget] = useState({ x: 0, y: 0 });
+
+  // Using refs to avoid unnecessary re-renders during animation
+  const targetRef = useRef({ x: 0, y: 0 });
+  const posRef = useRef({ x: 0, y: 0 });
+  const rafRef = useRef(0);
 
   useEffect(() => {
     const onMove = (e) => {
-      setTarget({ x: e.clientX, y: e.clientY });
+      targetRef.current.x = e.clientX;
+      targetRef.current.y = e.clientY;
     };
-    window.addEventListener('pointermove', onMove);
-    return () => window.removeEventListener('pointermove', onMove);
-  }, []);
 
-  useEffect(()n  => {
-    let raf;
+    window.addEventListener('pointermove', onMove);
+
     const tick = () => {
+      const { x: tx, y: ty } = targetRef.current;
+      const { x: px, y: py } = posRef.current;
+
       // Smooth follow (lerp)
-      const dx = target.x - pos.x;
-      const dy = target.y - pos.y;
-      const nx = pos.x + dx * 0.2;
-      const ny = pos.y + dy * 0.2;
-      setPos({ x: nx, y: ny });
+      const nx = px + (tx - px) * 0.2;
+      const ny = py + (ty - py) * 0.2;
+      posRef.current.x = nx;
+      posRef.current.y = ny;
 
       if (cursorRef.current) {
         cursorRef.current.style.transform = `translate3d(${nx}px, ${ny}px, 0)`;
       }
       if (trailRef.current) {
-        trailRef.current.style.transform = `translate3d(${target.x}px, ${target.y}px, 0)`;
+        trailRef.current.style.transform = `translate3d(${tx}px, ${ty}px, 0)`;
       }
-      raf = requestAnimationFrame(tick);
+
+      rafRef.current = requestAnimationFrame(tick);
     };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [target, pos.x, pos.y]);
+
+    rafRef.current = requestAnimationFrame(tick);
+
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      cancelAnimationFrame(rafRef.current);
+    };
+  }, []);
 
   return (
     <>
@@ -52,7 +61,7 @@ const CursorGlow = () => {
         </div>
       </div>
 
-      {/* Soft trailing aura tied to the real cursor position for responsiveness */}
+      {/* Soft trailing aura tied to real cursor position */}
       <div
         ref={trailRef}
         className="pointer-events-none fixed left-0 top-0 z-[50] hidden -translate-x-1/2 -translate-y-1/2 md:block"
